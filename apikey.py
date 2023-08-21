@@ -1,0 +1,2 @@
+# FROM HUGGINGFACE TOKEN
+apikey = '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'
