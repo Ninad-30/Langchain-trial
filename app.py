@@ -10,9 +10,10 @@ from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings
 
 from langchain.vectorstores import FAISS
 
-from langchain.llms import HuggingFaceHub
+from langchain.llms import HuggingFaceHub, OpenAI
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain, SequentialChain
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import LLMChain, SequentialChain, ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.utilities import WikipediaAPIWrapper
 
@@ -60,12 +61,30 @@ def get_vector_store(text_chunks):
     return vector_store
 
 
+def get_conversation_chain(vectorstore):
+    llm = ChatOpenAI()
+    memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm, retriever=vectorstore.as_retriever(),
+        memory = memory
+    )
+    return conversation_chain
+
+
+def handle_userinput(question):
+    response = st.session_state.conversation({'question': question})
+    st.write(response)
+
+
 def main():
     load_dotenv()
 
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+
     # Load the Streamlit website GUI
     st.set_page_config(page_title="Research paper chatter", page_icon=":books:")
-    st.header("Research Paper summarizer :books:")
+    st.header("Research Paper chat :books:")
     question = st.text_input("Ask a question about the paper")
 
     with st.sidebar:
@@ -75,11 +94,11 @@ def main():
             with st.spinner("Processing"):
                 # Process the PDFs once the button is pressed
                 raw_text = get_pdf_txt(pdf_docs)
-                st.write(raw_text[:10])
+                st.write(raw_text[:20])
 
                 # Text chunks
                 text_chunks = get_text_chunks(raw_text)
-                st.write(text_chunks)
+                # st.write(text_chunks)
 
                 # Vector db
                 vectorstore = get_vector_store(text_chunks)
@@ -88,8 +107,12 @@ def main():
 
                 while not question:
                     st.spinner("Input a question please!")
-                docs = vectorstore.similarity_search(question)
-                print(docs[0].page_content)
+                # docs = vectorstore.similarity_search(question)
+                conversation = get_conversation_chain(vectorstore)
+                st.session_state.conversation = get_conversation_chain(vectorstore)
+                handle_userinput(question)
+                # print(docs[0].page_content)
+    st.session_state.conversation
 
 
 if __name__ == "__main__":
