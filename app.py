@@ -73,23 +73,33 @@ def get_conversation_chain(vectorstore):
 
 def handle_userinput(question):
     response = st.session_state.conversation({'question': question})
-    st.write(response)
+    st.session_state.chat_history = response['chat_history']
+
+    for i, message in enumerate(st.session_state.chat_history):
+        if i % 2 ==0:
+            st.write(message.content)
+        else:
+            st.write(message.content)
 
 
 def main():
     load_dotenv()
 
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = None
-
     # Load the Streamlit website GUI
     st.set_page_config(page_title="Research paper chatter", page_icon=":books:")
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = None
+
     st.header("Research Paper chat :books:")
-    question = st.text_input("Ask a question about the paper")
+    user_question = st.text_input("Input the PDF(s), press the Process button, and ask a question when prompted!")
+    if user_question:
+        handle_userinput(user_question)
 
     with st.sidebar:
         st.subheader("Your research papers")
-        pdf_docs = st.file_uploader("Upload the PDFs here", accept_multiple_files=True)
+        pdf_docs = st.file_uploader("Upload the PDFs here and click to Process", accept_multiple_files=True)
         if st.button("Process"):
             with st.spinner("Processing"):
                 # Process the PDFs once the button is pressed
@@ -102,17 +112,11 @@ def main():
 
                 # Vector db
                 vectorstore = get_vector_store(text_chunks)
-                print(type(vectorstore))
                 print("Stored the pdf into a vector db")
 
-                while not question:
-                    st.spinner("Input a question please!")
                 # docs = vectorstore.similarity_search(question)
-                conversation = get_conversation_chain(vectorstore)
                 st.session_state.conversation = get_conversation_chain(vectorstore)
-                handle_userinput(question)
-                # print(docs[0].page_content)
-    st.session_state.conversation
+                st.write("Ask a question now")
 
 
 if __name__ == "__main__":
